@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VulnNotes — API Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111520;
+      --surface2:  #161b27;
+      --border:    #1e2535;
+      --cyan:      #00e5ff;
+      --purple:    #b44fff;
+      --green:     #00e676;
+      --red:       #ff3d5a;
+      --yellow:    #ffd740;
+      --text:      #c8d0e0;
+      --text-dim:  #5a6272;
+      --text-bright: #e8eaf6;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Courier New', Courier, monospace; font-size: 14px; }
+
+    /* grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    #app { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 16px 40px; }
+
+    /* ── Header ── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+      background: rgba(10,12,16,0.92); backdrop-filter: blur(8px);
+    }
+    .logo { font-size: 1.2rem; color: var(--cyan); letter-spacing: 2px; font-weight: bold; }
+    .logo span { color: var(--purple); }
+    .status-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 14px; border-radius: 20px;
+      background: rgba(0,230,118,0.1); border: 1px solid var(--green);
+      color: var(--green); font-size: 0.75rem; letter-spacing: 1px;
+    }
+    .status-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── Stats row ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 20px 0;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; display: flex; flex-direction: column; gap: 6px;
+      transition: border-color .2s;
+    }
+    .stat-card:hover { border-color: var(--cyan); }
+    .stat-label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+    .stat-value { font-size: 2rem; color: var(--cyan); font-weight: bold; line-height: 1; }
+    .stat-card:nth-child(2) .stat-value { color: var(--purple); }
+    .stat-card:nth-child(3) .stat-value { color: var(--green); }
+    .stat-card:nth-child(4) .stat-value { color: var(--yellow); }
+    .stat-card:nth-child(5) .stat-value { color: var(--cyan); }
+
+    /* ── Main layout ── */
+    .main { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+
+    /* ── Panel base ── */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .panel-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--text-bright); font-size: 0.75rem; letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .panel-header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); }
+
+    /* ── Recent notes ── */
+    .notes-list { padding: 0; }
+    .note-row {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: start;
+      transition: background .15s;
+    }
+    .note-row:hover { background: var(--surface2); }
+    .note-row:last-child { border-bottom: none; }
+    .note-id { color: var(--text-dim); font-size: 0.7rem; padding-top: 2px; }
+    .note-title { color: var(--text-bright); margin-bottom: 3px; }
+    .note-preview { color: var(--text-dim); font-size: 0.75rem; line-height: 1.4; }
+    .note-time { color: var(--text-dim); font-size: 0.65rem; white-space: nowrap; }
+    .empty-notes { padding: 32px 16px; text-align: center; color: var(--text-dim); }
+
+    /* ── Side panel ── */
+    .side { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Creds table ── */
+    .creds-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .creds-table th { color: var(--text-dim); text-align: left; padding: 6px 16px; letter-spacing: 1px; font-size: 0.65rem; text-transform: uppercase; }
+    .creds-table td { padding: 6px 16px; border-top: 1px solid var(--border); }
+    .creds-table tr:last-child td { border-bottom: none; }
+    .creds-table .user { color: var(--cyan); }
+    .creds-table .pass { color: var(--text-dim); font-family: monospace; }
+    .creds-table .role-admin { color: var(--red); font-size: 0.65rem; }
+    .creds-table .role-user { color: var(--text-dim); font-size: 0.65rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-block; padding: 8px 16px; border-radius: 5px; cursor: pointer;
+      border: 1px solid; font-family: inherit; font-size: 0.8rem; letter-spacing: 1px;
+      text-decoration: none; text-align: center; transition: all .15s;
+    }
+    .btn-cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(0,229,255,0.05); }
+    .btn-cyan:hover { background: rgba(0,229,255,0.15); }
+    .btn-purple { color: var(--purple); border-color: var(--purple); background: rgba(180,79,255,0.05); }
+    .btn-purple:hover { background: rgba(180,79,255,0.15); }
+    .btn-sm { padding: 5px 10px; font-size: 0.7rem; }
+    .btn-block { width: 100%; }
+    .btn-links { display: flex; gap: 8px; padding: 12px 16px; }
+
+    /* ── Vuln callout ── */
+    .vuln-box {
+      margin: 12px 16px; padding: 10px 12px; border-radius: 5px;
+      border-left: 3px solid var(--red); background: rgba(255,61,90,0.07);
+    }
+    .vuln-box .vuln-title { color: var(--red); font-size: 0.7rem; letter-spacing: 1px; margin-bottom: 4px; }
+    .vuln-box .vuln-body { color: var(--text-dim); font-size: 0.72rem; line-height: 1.5; }
+    code { color: var(--yellow); background: rgba(255,215,64,0.1); padding: 1px 4px; border-radius: 3px; }
+
+    /* ── Seed section ── */
+    .seed-area { padding: 12px 16px; }
+    #seed-result { margin-top: 8px; font-size: 0.75rem; color: var(--green); min-height: 18px; }
+
+    /* ── Footer ── */
+    footer { margin-top: 30px; text-align: center; color: var(--text-dim); font-size: 0.7rem; letter-spacing: 1px; }
+
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">VULN<span>NOTES</span></div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span style="color:var(--text-dim);font-size:0.7rem;letter-spacing:1px">SECURITY LAB API</span>
+      <div class="status-pill" id="api-status">API ONLINE</div>
+    </div>
+  </header>
+
+  <!-- Stats row -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total Notes</div><div class="stat-value" id="s-notes">—</div></div>
+    <div class="stat-card"><div class="stat-label">Active Users</div><div class="stat-value" id="s-users">—</div></div>
+    <div class="stat-card"><div class="stat-label">Notes Today</div><div class="stat-value" id="s-today">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Length</div><div class="stat-value" id="s-avg">—</div></div>
+    <div class="stat-card"><div class="stat-label">Requests 24h</div><div class="stat-value" id="s-req">—</div></div>
+  </div>
+
+  <div class="main">
+    <!-- Recent notes -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <span>Recent Notes Feed</span>
+          <div class="dot"></div>
+        </div>
+        <div class="notes-list" id="notes-list">
+          <div class="empty-notes">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side">
+
+      <!-- Demo credentials -->
+      <div class="panel">
+        <div class="panel-header"><span>Demo Accounts</span></div>
+        <table class="creds-table">
+          <thead><tr><th>Username</th><th>Password</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td class="user">alice</td><td class="pass">alice123</td><td class="role-user">user</td></tr>
+            <tr><td class="user">bob</td><td class="pass">bob12345</td><td class="role-user">user</td></tr>
+            <tr><td class="user">charlie</td><td class="pass">charlie1</td><td class="role-user">user</td></tr>
+            <tr><td class="user">admin</td><td class="pass">admin123</td><td class="role-admin">admin</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Quick links -->
+      <div class="panel">
+        <div class="panel-header"><span>API Explorer</span></div>
+        <div class="btn-links" style="flex-direction:column">
+          <a class="btn btn-cyan btn-block" href="/docs" target="_blank">Swagger UI /docs</a>
+          <a class="btn btn-purple btn-block" href="/redoc" target="_blank">ReDoc /redoc</a>
+          <a class="btn btn-cyan btn-sm btn-block" href="/openapi.json" target="_blank">OpenAPI JSON (for Active Testing)</a>
+        </div>
+      </div>
+
+      <!-- Seed -->
+      <div class="panel">
+        <div class="panel-header"><span>Data Seed</span></div>
+        <div class="seed-area">
+          <p style="color:var(--text-dim);font-size:0.75rem;margin-bottom:8px">
+            Creates demo users and sample notes. Safe to run multiple times — skips existing usernames.
+          </p>
+          <button class="btn btn-cyan btn-block" onclick="runSeed()">Run /api/seed</button>
+          <div id="seed-result"></div>
+        </div>
+      </div>
+
+      <!-- Vulnerability callout -->
+      <div class="panel">
+        <div class="panel-header"><span>Known Vulnerabilities</span></div>
+        <div class="vuln-box" style="margin-top:12px">
+          <div class="vuln-title">API1:2023 — BOLA</div>
+          <div class="vuln-body">
+            <code>GET /api/notes/{id}</code>, <code>PUT</code>, <code>DELETE</code> do not verify
+            <code>note.owner_id == current_user.id</code>. Any authenticated user can read, modify,
+            or delete any note by ID.
+          </div>
+        </div>
+        <div class="vuln-box">
+          <div class="vuln-title">Weak JWT</div>
+          <div class="vuln-body">
+            Predictable secret key, 24-hour token lifetime. Tokens can be forged offline.
+          </div>
+        </div>
+        <div style="padding:0 16px 12px"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>FOR LAB AND EDUCATIONAL USE ONLY — DO NOT EXPOSE TO PUBLIC INTERNET</footer>
+</div>
+
+<script>
+  function fmt(ts) {
+    if (!ts) return '';
+    const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/stats');
+      if (!r.ok) return;
+      const d = await r.json();
+      document.getElementById('s-notes').textContent = d.total_notes ?? '—';
+      document.getElementById('s-users').textContent = d.active_users ?? '—';
+      document.getElementById('s-today').textContent = d.notes_today ?? '—';
+      document.getElementById('s-avg').textContent = d.avg_note_length ?? '—';
+      document.getElementById('s-req').textContent  = d.api_requests_24h ?? '—';
+    } catch (e) {
+      document.getElementById('api-status').textContent = 'API OFFLINE';
+      document.getElementById('api-status').style.borderColor = 'var(--red)';
+      document.getElementById('api-status').style.color = 'var(--red)';
+    }
+  }
+
+  async function loadNotes() {
+    try {
+      const r = await fetch('/api/notes/public/recent');
+      if (!r.ok) return;
+      const notes = await r.json();
+      const el = document.getElementById('notes-list');
+      if (!notes.length) {
+        el.innerHTML = '<div class="empty-notes">No notes yet. Run /api/seed to populate.</div>';
+        return;
+      }
+      el.innerHTML = notes.map(n => `
+        <div class="note-row">
+          <div class="note-id">#${n.id}</div>
+          <div>
+            <div class="note-title">${esc(n.title)}</div>
+            <div class="note-preview">${esc(n.preview)}…</div>
+          </div>
+          <div class="note-time">${fmt(n.created_at)}</div>
+        </div>`).join('');
+    } catch (e) {}
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function runSeed() {
+    const el = document.getElementById('seed-result');
+    el.style.color = 'var(--text-dim)';
+    el.textContent = 'Seeding…';
+    try {
+      const r = await fetch('/api/seed', {method: 'POST'});
+      const d = await r.json();
+      el.style.color = 'var(--green)';
+      el.textContent = `Created ${d.created_users} users, ${d.created_notes} notes`;
+      loadStats(); loadNotes();
+    } catch (e) {
+      el.style.color = 'var(--red)';
+      el.textContent = 'Seed failed';
+    }
+  }
+
+  loadStats(); loadNotes();
+  setInterval(loadStats, 10000);
+  setInterval(loadNotes, 15000);
+</script>
+</body>
+</html>
