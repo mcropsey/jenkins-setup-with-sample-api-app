@@ -125,9 +125,18 @@ EOF
 docker restart jenkins
 ```
 
-After restart, log in at `http://192.168.1.100:8080` with username `admin` and the password you set above. The setup wizard is skipped entirely.
+After Jenkins restarts, write the two wizard-completion marker files — without these, Jenkins re-presents the setup wizard on every startup even though the admin user and plugins are already in place:
 
-To verify the login worked from the server:
+```bash
+VERSION=$(docker exec jenkins java -jar /usr/share/jenkins/jenkins.war --version 2>/dev/null)
+docker exec jenkins bash -c "echo '$VERSION' > /var/jenkins_home/jenkins.install.InstallUtil.lastExecVersion"
+docker exec jenkins bash -c "echo '2.0' > /var/jenkins_home/jenkins.install.UpgradeWizard.state"
+docker restart jenkins
+```
+
+After the second restart, log in at `http://192.168.1.100:8080` with username `admin` and the password you set above. You will land directly on the login screen — no wizard.
+
+To verify from the server:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}' -u admin:YOUR_PASSWORD http://localhost:8080/api/json
