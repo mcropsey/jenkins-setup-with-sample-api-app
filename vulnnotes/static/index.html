@@ -3,319 +3,886 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VulnNotes — API Dashboard</title>
+  <title>VulnNotes</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --bg:        #0a0c10;
       --surface:   #111520;
       --surface2:  #161b27;
+      --surface3:  #1c2235;
       --border:    #1e2535;
+      --border2:   #2a3448;
       --cyan:      #00e5ff;
       --purple:    #b44fff;
       --green:     #00e676;
       --red:       #ff3d5a;
       --yellow:    #ffd740;
+      --orange:    #ff9100;
       --text:      #c8d0e0;
       --text-dim:  #5a6272;
-      --text-bright: #e8eaf6;
+      --text-bright:#e8eaf6;
     }
-
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Courier New', Courier, monospace; font-size: 14px; }
-
-    /* grid background */
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Courier New', Courier, monospace; font-size: 14px; overflow: hidden; }
     body::before {
-      content: '';
-      position: fixed; inset: 0; pointer-events: none; z-index: 0;
-      background-image:
-        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
       background-size: 40px 40px;
     }
 
-    #app { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 16px 40px; }
+    /* ── Layout ── */
+    #app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
 
-    /* ── Header ── */
     header {
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 0; border-bottom: 1px solid var(--border);
-      background: rgba(10,12,16,0.92); backdrop-filter: blur(8px);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; border-bottom: 1px solid var(--border);
+      background: rgba(10,12,16,0.95); backdrop-filter: blur(8px); z-index: 50;
     }
-    .logo { font-size: 1.2rem; color: var(--cyan); letter-spacing: 2px; font-weight: bold; }
+    .logo { font-size: 1.1rem; color: var(--cyan); letter-spacing: 3px; font-weight: bold; }
     .logo span { color: var(--purple); }
-    .status-pill {
-      display: flex; align-items: center; gap: 8px;
-      padding: 4px 14px; border-radius: 20px;
-      background: rgba(0,230,118,0.1); border: 1px solid var(--green);
-      color: var(--green); font-size: 0.75rem; letter-spacing: 1px;
-    }
-    .status-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .pill { display: flex; align-items: center; gap: 6px; padding: 3px 12px; border-radius: 20px; font-size: 0.7rem; letter-spacing: 1px; border: 1px solid; }
+    .pill-green { color: var(--green); border-color: var(--green); background: rgba(0,230,118,0.08); }
+    .pill-green::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+    .pill-user { color: var(--cyan); border-color: var(--border); background: var(--surface); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ── Stats row ── */
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 20px 0;
-    }
-    .stat-card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-      padding: 16px; display: flex; flex-direction: column; gap: 6px;
-      transition: border-color .2s;
-    }
-    .stat-card:hover { border-color: var(--cyan); }
-    .stat-label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
-    .stat-value { font-size: 2rem; color: var(--cyan); font-weight: bold; line-height: 1; }
-    .stat-card:nth-child(2) .stat-value { color: var(--purple); }
-    .stat-card:nth-child(3) .stat-value { color: var(--green); }
-    .stat-card:nth-child(4) .stat-value { color: var(--yellow); }
-    .stat-card:nth-child(5) .stat-value { color: var(--cyan); }
+    .workspace { flex: 1; display: flex; overflow: hidden; }
 
-    /* ── Main layout ── */
-    .main { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
-
-    /* ── Panel base ── */
-    .panel {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    /* ── Left sidebar ── */
+    .sidebar {
+      width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
+      background: var(--surface); display: flex; flex-direction: column; overflow: hidden;
     }
-    .panel-header {
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      color: var(--text-bright); font-size: 0.75rem; letter-spacing: 1.5px; text-transform: uppercase;
+    .sidebar-section { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .sidebar-label { padding: 6px 16px 4px; font-size: 0.65rem; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer;
+      color: var(--text); transition: background .12s, color .12s; font-size: 0.8rem;
     }
-    .panel-header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); }
+    .nav-item:hover { background: var(--surface2); color: var(--text-bright); }
+    .nav-item.active { background: var(--surface3); color: var(--cyan); border-left: 2px solid var(--cyan); }
+    .nav-item .icon { width: 16px; text-align: center; }
+    .nav-badge { margin-left: auto; background: var(--surface3); color: var(--text-dim); font-size: 0.65rem; padding: 1px 6px; border-radius: 8px; }
 
-    /* ── Recent notes ── */
-    .notes-list { padding: 0; }
-    .note-row {
-      padding: 12px 16px; border-bottom: 1px solid var(--border);
-      display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: start;
-      transition: background .15s;
+    /* ── Main content area ── */
+    .main { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Views ── */
+    .view { flex: 1; overflow-y: auto; padding: 20px 24px; display: none; }
+    .view.active { display: block; }
+
+    /* ── Auth view ── */
+    .auth-wrap { max-width: 420px; margin: 40px auto; }
+    .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .auth-tab { padding: 8px 20px; cursor: pointer; font-size: 0.8rem; color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .auth-tab.active { color: var(--cyan); border-color: var(--cyan); }
+    .auth-form { display: none; }
+    .auth-form.active { display: block; }
+    .demo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px; }
+    .demo-btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 8px; border-radius: 5px; cursor: pointer; font-family: inherit; font-size: 0.75rem; text-align: left; transition: border-color .15s; }
+    .demo-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .demo-btn .du { color: var(--cyan); }
+    .demo-btn .dp { color: var(--text-dim); font-size: 0.7rem; }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.7rem; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase; }
+    input[type=text], input[type=password], input[type=email], textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border2); color: var(--text-bright);
+      padding: 9px 12px; border-radius: 5px; font-family: inherit; font-size: 0.85rem;
+      outline: none; transition: border-color .15s;
     }
-    .note-row:hover { background: var(--surface2); }
-    .note-row:last-child { border-bottom: none; }
-    .note-id { color: var(--text-dim); font-size: 0.7rem; padding-top: 2px; }
-    .note-title { color: var(--text-bright); margin-bottom: 3px; }
-    .note-preview { color: var(--text-dim); font-size: 0.75rem; line-height: 1.4; }
-    .note-time { color: var(--text-dim); font-size: 0.65rem; white-space: nowrap; }
-    .empty-notes { padding: 32px 16px; text-align: center; color: var(--text-dim); }
-
-    /* ── Side panel ── */
-    .side { display: flex; flex-direction: column; gap: 16px; }
-
-    /* ── Creds table ── */
-    .creds-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-    .creds-table th { color: var(--text-dim); text-align: left; padding: 6px 16px; letter-spacing: 1px; font-size: 0.65rem; text-transform: uppercase; }
-    .creds-table td { padding: 6px 16px; border-top: 1px solid var(--border); }
-    .creds-table tr:last-child td { border-bottom: none; }
-    .creds-table .user { color: var(--cyan); }
-    .creds-table .pass { color: var(--text-dim); font-family: monospace; }
-    .creds-table .role-admin { color: var(--red); font-size: 0.65rem; }
-    .creds-table .role-user { color: var(--text-dim); font-size: 0.65rem; }
+    input:focus, textarea:focus { border-color: var(--cyan); }
+    textarea { resize: vertical; min-height: 100px; }
 
     /* ── Buttons ── */
-    .btn {
-      display: inline-block; padding: 8px 16px; border-radius: 5px; cursor: pointer;
-      border: 1px solid; font-family: inherit; font-size: 0.8rem; letter-spacing: 1px;
-      text-decoration: none; text-align: center; transition: all .15s;
-    }
-    .btn-cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(0,229,255,0.05); }
-    .btn-cyan:hover { background: rgba(0,229,255,0.15); }
-    .btn-purple { color: var(--purple); border-color: var(--purple); background: rgba(180,79,255,0.05); }
-    .btn-purple:hover { background: rgba(180,79,255,0.15); }
-    .btn-sm { padding: 5px 10px; font-size: 0.7rem; }
+    .btn { padding: 8px 18px; border-radius: 5px; cursor: pointer; border: 1px solid; font-family: inherit; font-size: 0.8rem; letter-spacing: 1px; transition: all .15s; }
+    .btn-cyan   { color: var(--cyan);   border-color: var(--cyan);   background: rgba(0,229,255,.06); }
+    .btn-cyan:hover { background: rgba(0,229,255,.15); }
+    .btn-purple { color: var(--purple); border-color: var(--purple); background: rgba(180,79,255,.06); }
+    .btn-purple:hover { background: rgba(180,79,255,.15); }
+    .btn-red    { color: var(--red);    border-color: var(--red);    background: rgba(255,61,90,.06); }
+    .btn-red:hover { background: rgba(255,61,90,.15); }
+    .btn-green  { color: var(--green);  border-color: var(--green);  background: rgba(0,230,118,.06); }
+    .btn-green:hover { background: rgba(0,230,118,.15); }
+    .btn-ghost  { color: var(--text-dim); border-color: var(--border); background: transparent; }
+    .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+    .btn-sm { padding: 5px 12px; font-size: 0.72rem; }
     .btn-block { width: 100%; }
-    .btn-links { display: flex; gap: 8px; padding: 12px 16px; }
 
-    /* ── Vuln callout ── */
-    .vuln-box {
-      margin: 12px 16px; padding: 10px 12px; border-radius: 5px;
-      border-left: 3px solid var(--red); background: rgba(255,61,90,0.07);
+    /* ── Page headers ── */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .page-title { font-size: 1rem; color: var(--text-bright); letter-spacing: 2px; }
+    .page-title span { color: var(--text-dim); font-size: 0.75rem; margin-left: 10px; }
+
+    /* ── Note cards ── */
+    .notes-grid { display: flex; flex-direction: column; gap: 10px; }
+    .note-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+      padding: 14px 16px; cursor: pointer; transition: border-color .15s, background .15s;
     }
-    .vuln-box .vuln-title { color: var(--red); font-size: 0.7rem; letter-spacing: 1px; margin-bottom: 4px; }
-    .vuln-box .vuln-body { color: var(--text-dim); font-size: 0.72rem; line-height: 1.5; }
-    code { color: var(--yellow); background: rgba(255,215,64,0.1); padding: 1px 4px; border-radius: 3px; }
+    .note-card:hover { border-color: var(--border2); background: var(--surface2); }
+    .note-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .note-card-title { color: var(--text-bright); font-size: 0.9rem; }
+    .note-card-id { color: var(--text-dim); font-size: 0.65rem; white-space: nowrap; }
+    .note-card-preview { color: var(--text-dim); font-size: 0.75rem; line-height: 1.5; }
+    .note-card-footer { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+    .note-card-time { color: var(--text-dim); font-size: 0.65rem; margin-left: auto; }
+    .note-actions { display: flex; gap: 6px; }
 
-    /* ── Seed section ── */
-    .seed-area { padding: 12px 16px; }
-    #seed-result { margin-top: 8px; font-size: 0.75rem; color: var(--green); min-height: 18px; }
+    /* ── Note detail ── */
+    .detail-panel { max-width: 700px; }
+    .detail-meta { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+    .meta-chip { font-size: 0.7rem; color: var(--text-dim); background: var(--surface2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 12px; }
+    .meta-chip span { color: var(--text); }
 
-    /* ── Footer ── */
-    footer { margin-top: 30px; text-align: center; color: var(--text-dim); font-size: 0.7rem; letter-spacing: 1px; }
+    /* ── BOLA lab ── */
+    .bola-banner { background: rgba(255,61,90,.07); border: 1px solid rgba(255,61,90,.25); border-radius: 7px; padding: 14px 16px; margin-bottom: 20px; }
+    .bola-banner-title { color: var(--red); font-size: 0.75rem; letter-spacing: 1px; margin-bottom: 4px; }
+    .bola-banner-body { color: var(--text-dim); font-size: 0.75rem; line-height: 1.6; }
+    code { color: var(--yellow); background: rgba(255,215,64,.1); padding: 1px 5px; border-radius: 3px; font-family: inherit; }
 
-    @media (max-width: 900px) {
-      .stats-grid { grid-template-columns: repeat(3, 1fr); }
-      .main { grid-template-columns: 1fr; }
+    .bola-form { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+    .bola-form .form-group { margin-bottom: 0; flex: 1; min-width: 120px; }
+
+    .result-box {
+      background: var(--surface2); border: 1px solid var(--border2); border-radius: 5px;
+      padding: 12px 14px; font-size: 0.75rem; margin-top: 12px;
+      white-space: pre-wrap; word-break: break-all; line-height: 1.6; max-height: 260px; overflow-y: auto;
+    }
+    .result-box.success { border-color: rgba(0,230,118,.3); }
+    .result-box.error   { border-color: rgba(255,61,90,.3); }
+    .result-box.bola    { border-color: rgba(255,61,90,.5); background: rgba(255,61,90,.05); }
+
+    /* ── Stats ── */
+    .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 14px 16px; }
+    .stat-label { font-size: 0.65rem; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-val { font-size: 1.8rem; font-weight: bold; color: var(--cyan); line-height: 1; }
+    .stat-box:nth-child(2) .stat-val { color: var(--purple); }
+    .stat-box:nth-child(3) .stat-val { color: var(--green); }
+    .stat-box:nth-child(4) .stat-val { color: var(--yellow); }
+
+    /* ── Alerts ── */
+    .alert { padding: 9px 14px; border-radius: 5px; font-size: 0.75rem; margin-top: 10px; }
+    .alert-err  { background: rgba(255,61,90,.1);  border: 1px solid rgba(255,61,90,.3);  color: var(--red); }
+    .alert-ok   { background: rgba(0,230,118,.1);  border: 1px solid rgba(0,230,118,.3);  color: var(--green); }
+    .alert-warn { background: rgba(255,145,0,.1);  border: 1px solid rgba(255,145,0,.3);  color: var(--orange); }
+
+    /* ── Modal ── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: center; justify-content: center; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 24px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 0.9rem; color: var(--text-bright); letter-spacing: 1px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+    /* ── Instructions ── */
+    .inst-section { margin-bottom: 20px; }
+    .inst-section h3 { font-size: 0.8rem; color: var(--cyan); letter-spacing: 1px; margin-bottom: 10px; }
+    .inst-section p, .inst-section li { font-size: 0.8rem; color: var(--text); line-height: 1.7; }
+    .inst-section ul, .inst-section ol { padding-left: 18px; }
+    .inst-section li { margin-bottom: 4px; }
+    .step-list { counter-reset: steps; list-style: none; padding: 0; }
+    .step-list li { counter-increment: steps; padding-left: 28px; position: relative; margin-bottom: 8px; }
+    .step-list li::before { content: counter(steps); position: absolute; left: 0; top: 1px; width: 18px; height: 18px; background: var(--cyan); color: var(--bg); font-size: 0.65rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .creds-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .creds-table th { color: var(--text-dim); text-align: left; padding: 6px 10px; font-size: 0.65rem; letter-spacing: 1px; text-transform: uppercase; }
+    .creds-table td { padding: 6px 10px; border-top: 1px solid var(--border); }
+    .creds-table .u { color: var(--cyan); }
+    .creds-table .p { color: var(--text-dim); }
+    .creds-table .r-admin { color: var(--red); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    @media(max-width:700px) {
+      .sidebar { display: none; }
+      .stats-row { grid-template-columns: repeat(2,1fr); }
     }
   </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- HEADER -->
   <header>
     <div class="logo">VULN<span>NOTES</span></div>
-    <div style="display:flex;align-items:center;gap:16px">
-      <span style="color:var(--text-dim);font-size:0.7rem;letter-spacing:1px">SECURITY LAB API</span>
-      <div class="status-pill" id="api-status">API ONLINE</div>
+    <div class="header-right">
+      <div class="pill pill-green">API ONLINE</div>
+      <div class="pill pill-user" id="hdr-user" style="display:none"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-logout" style="display:none" onclick="logout()">LOGOUT</button>
+      <a class="btn btn-ghost btn-sm" href="/docs" target="_blank">SWAGGER</a>
     </div>
   </header>
 
-  <!-- Stats row -->
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">Total Notes</div><div class="stat-value" id="s-notes">—</div></div>
-    <div class="stat-card"><div class="stat-label">Active Users</div><div class="stat-value" id="s-users">—</div></div>
-    <div class="stat-card"><div class="stat-label">Notes Today</div><div class="stat-value" id="s-today">—</div></div>
-    <div class="stat-card"><div class="stat-label">Avg Length</div><div class="stat-value" id="s-avg">—</div></div>
-    <div class="stat-card"><div class="stat-label">Requests 24h</div><div class="stat-value" id="s-req">—</div></div>
-  </div>
-
-  <div class="main">
-    <!-- Recent notes -->
-    <div>
-      <div class="panel">
-        <div class="panel-header">
-          <span>Recent Notes Feed</span>
-          <div class="dot"></div>
+  <div class="workspace">
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar" style="display:none">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Notes</div>
+        <div class="nav-item active" data-view="notes" onclick="showView('notes')">
+          <span class="icon">📄</span> My Notes <span class="nav-badge" id="nb-count">0</span>
         </div>
-        <div class="notes-list" id="notes-list">
-          <div class="empty-notes">Loading…</div>
+        <div class="nav-item" data-view="create" onclick="showView('create')">
+          <span class="icon">✏️</span> New Note
         </div>
       </div>
-    </div>
-
-    <!-- Side panel -->
-    <div class="side">
-
-      <!-- Demo credentials -->
-      <div class="panel">
-        <div class="panel-header"><span>Demo Accounts</span></div>
-        <table class="creds-table">
-          <thead><tr><th>Username</th><th>Password</th><th>Role</th></tr></thead>
-          <tbody>
-            <tr><td class="user">alice</td><td class="pass">alice123</td><td class="role-user">user</td></tr>
-            <tr><td class="user">bob</td><td class="pass">bob12345</td><td class="role-user">user</td></tr>
-            <tr><td class="user">charlie</td><td class="pass">charlie1</td><td class="role-user">user</td></tr>
-            <tr><td class="user">admin</td><td class="pass">admin123</td><td class="role-admin">admin</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Quick links -->
-      <div class="panel">
-        <div class="panel-header"><span>API Explorer</span></div>
-        <div class="btn-links" style="flex-direction:column">
-          <a class="btn btn-cyan btn-block" href="/docs" target="_blank">Swagger UI /docs</a>
-          <a class="btn btn-purple btn-block" href="/redoc" target="_blank">ReDoc /redoc</a>
-          <a class="btn btn-cyan btn-sm btn-block" href="/openapi.json" target="_blank">OpenAPI JSON (for Active Testing)</a>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Lab</div>
+        <div class="nav-item" data-view="bola" onclick="showView('bola')">
+          <span class="icon">🔓</span> BOLA Lab
+        </div>
+        <div class="nav-item" data-view="stats" onclick="showView('stats')">
+          <span class="icon">📊</span> API Stats
         </div>
       </div>
-
-      <!-- Seed -->
-      <div class="panel">
-        <div class="panel-header"><span>Data Seed</span></div>
-        <div class="seed-area">
-          <p style="color:var(--text-dim);font-size:0.75rem;margin-bottom:8px">
-            Creates demo users and sample notes. Safe to run multiple times — skips existing usernames.
-          </p>
-          <button class="btn btn-cyan btn-block" onclick="runSeed()">Run /api/seed</button>
-          <div id="seed-result"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Help</div>
+        <div class="nav-item" data-view="how" onclick="showView('how')">
+          <span class="icon">📖</span> How to Use
         </div>
       </div>
+    </nav>
 
-      <!-- Vulnerability callout -->
-      <div class="panel">
-        <div class="panel-header"><span>Known Vulnerabilities</span></div>
-        <div class="vuln-box" style="margin-top:12px">
-          <div class="vuln-title">API1:2023 — BOLA</div>
-          <div class="vuln-body">
-            <code>GET /api/notes/{id}</code>, <code>PUT</code>, <code>DELETE</code> do not verify
-            <code>note.owner_id == current_user.id</code>. Any authenticated user can read, modify,
-            or delete any note by ID.
+    <!-- VIEWS -->
+    <div class="main">
+
+      <!-- LOGIN VIEW -->
+      <div class="view active" id="view-auth">
+        <div class="auth-wrap">
+          <div style="margin-bottom:24px">
+            <div style="font-size:1.3rem;color:var(--cyan);letter-spacing:2px;margin-bottom:6px">VULNNOTES</div>
+            <div style="color:var(--text-dim);font-size:0.8rem">Intentionally vulnerable API — security training lab</div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <div style="font-size:0.7rem;color:var(--text-dim);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase">Quick login — demo accounts</div>
+            <div class="demo-grid">
+              <button class="demo-btn" onclick="quickLogin('alice','alice123')"><div class="du">alice</div><div class="dp">alice123 · user</div></button>
+              <button class="demo-btn" onclick="quickLogin('bob','bob12345')"><div class="du">bob</div><div class="dp">bob12345 · user</div></button>
+              <button class="demo-btn" onclick="quickLogin('charlie','charlie1')"><div class="du">charlie</div><div class="dp">charlie1 · user</div></button>
+              <button class="demo-btn" onclick="quickLogin('admin','admin123')"><div class="du">admin</div><div class="dp">admin123 · admin</div></button>
+            </div>
+          </div>
+
+          <div class="auth-tabs">
+            <div class="auth-tab active" onclick="switchAuthTab('login')">LOGIN</div>
+            <div class="auth-tab" onclick="switchAuthTab('register')">REGISTER</div>
+          </div>
+
+          <div class="auth-form active" id="form-login">
+            <div class="form-group"><label>Username</label><input id="l-user" type="text" placeholder="alice" /></div>
+            <div class="form-group"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" /></div>
+            <button class="btn btn-cyan btn-block" onclick="doLogin()">LOGIN</button>
+            <div id="auth-err"></div>
+          </div>
+
+          <div class="auth-form" id="form-register">
+            <div class="form-group"><label>Username</label><input id="r-user" type="text" /></div>
+            <div class="form-group"><label>Email (optional)</label><input id="r-email" type="email" /></div>
+            <div class="form-group"><label>Password</label><input id="r-pass" type="password" /></div>
+            <button class="btn btn-purple btn-block" onclick="doRegister()">CREATE ACCOUNT</button>
+            <div id="reg-err"></div>
+          </div>
+
+          <div style="margin-top:20px;padding:10px 12px;background:var(--surface2);border-radius:5px;border:1px solid var(--border)">
+            <div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:4px">No demo data?</div>
+            <button class="btn btn-ghost btn-sm" onclick="runSeed()">Seed demo users + notes</button>
+            <span id="seed-msg" style="font-size:0.72rem;margin-left:8px;color:var(--green)"></span>
           </div>
         </div>
-        <div class="vuln-box">
-          <div class="vuln-title">Weak JWT</div>
-          <div class="vuln-body">
-            Predictable secret key, 24-hour token lifetime. Tokens can be forged offline.
-          </div>
-        </div>
-        <div style="padding:0 16px 12px"></div>
       </div>
 
-    </div>
-  </div>
+      <!-- MY NOTES VIEW -->
+      <div class="view" id="view-notes">
+        <div class="page-header">
+          <div class="page-title">MY NOTES <span id="notes-owner-tag"></span></div>
+          <button class="btn btn-cyan btn-sm" onclick="showView('create')">+ NEW NOTE</button>
+        </div>
+        <div class="notes-grid" id="notes-list">
+          <div class="empty-state"><div class="icon">📄</div><div>No notes yet. Create one!</div></div>
+        </div>
+      </div>
 
-  <footer>FOR LAB AND EDUCATIONAL USE ONLY — DO NOT EXPOSE TO PUBLIC INTERNET</footer>
+      <!-- CREATE NOTE VIEW -->
+      <div class="view" id="view-create">
+        <div class="page-header">
+          <div class="page-title">NEW NOTE</div>
+        </div>
+        <div style="max-width:600px">
+          <div class="form-group"><label>Title</label><input id="cn-title" type="text" placeholder="Note title…" /></div>
+          <div class="form-group"><label>Content</label><textarea id="cn-content" rows="8" placeholder="Write your note here…"></textarea></div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-cyan" onclick="doCreateNote()">SAVE NOTE</button>
+            <button class="btn btn-ghost" onclick="showView('notes')">CANCEL</button>
+          </div>
+          <div id="cn-msg"></div>
+        </div>
+      </div>
+
+      <!-- NOTE DETAIL/EDIT VIEW -->
+      <div class="view" id="view-detail">
+        <div class="page-header">
+          <div class="page-title" id="det-title-hdr">NOTE</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-cyan btn-sm" id="det-edit-btn" onclick="toggleEdit()">EDIT</button>
+            <button class="btn btn-red btn-sm" id="det-del-btn" onclick="doDeleteNote()">DELETE</button>
+            <button class="btn btn-ghost btn-sm" onclick="showView('notes')">← BACK</button>
+          </div>
+        </div>
+        <div class="detail-panel">
+          <div class="detail-meta" id="det-meta"></div>
+          <div id="det-view-mode">
+            <div style="font-size:0.9rem;color:var(--text-bright);white-space:pre-wrap;line-height:1.7" id="det-content-text"></div>
+          </div>
+          <div id="det-edit-mode" style="display:none">
+            <div class="form-group"><label>Title</label><input id="det-edit-title" type="text" /></div>
+            <div class="form-group"><label>Content</label><textarea id="det-edit-content" rows="10"></textarea></div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-cyan" onclick="doUpdateNote()">SAVE CHANGES</button>
+              <button class="btn btn-ghost" onclick="toggleEdit()">CANCEL</button>
+            </div>
+          </div>
+          <div id="det-msg"></div>
+        </div>
+      </div>
+
+      <!-- BOLA LAB VIEW -->
+      <div class="view" id="view-bola">
+        <div class="page-header">
+          <div class="page-title">BOLA LAB <span>API1:2023</span></div>
+        </div>
+        <div class="bola-banner">
+          <div class="bola-banner-title">⚠ INTENTIONAL VULNERABILITY — BROKEN OBJECT LEVEL AUTHORIZATION</div>
+          <div class="bola-banner-body">
+            Endpoints <code>GET /api/notes/{id}</code>, <code>PUT /api/notes/{id}</code>, and <code>DELETE /api/notes/{id}</code>
+            do <strong>not</strong> verify that the note belongs to the authenticated user.
+            Any logged-in user can read, modify, or delete any note by guessing or knowing its ID.
+            Use the tools below to demonstrate this — this is the traffic Noname Active Testing will flag.
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
+
+          <!-- Read any note -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px">
+            <div style="font-size:0.75rem;color:var(--red);letter-spacing:1px;margin-bottom:12px">READ ANY NOTE BY ID</div>
+            <div class="bola-form">
+              <div class="form-group" style="flex:1"><label>Note ID</label><input id="bola-read-id" type="text" placeholder="e.g. 3" /></div>
+              <button class="btn btn-red btn-sm" onclick="bolaRead()">FETCH</button>
+            </div>
+            <div id="bola-read-result" class="result-box" style="display:none"></div>
+          </div>
+
+          <!-- Overwrite any note -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px">
+            <div style="font-size:0.75rem;color:var(--red);letter-spacing:1px;margin-bottom:12px">OVERWRITE ANY NOTE BY ID</div>
+            <div class="form-group"><label>Note ID</label><input id="bola-write-id" type="text" placeholder="e.g. 3" /></div>
+            <div class="form-group"><label>New content</label><textarea id="bola-write-content" rows="3" placeholder="Replacement content…"></textarea></div>
+            <button class="btn btn-red btn-sm" onclick="bolaWrite()">OVERWRITE</button>
+            <div id="bola-write-result" class="result-box" style="display:none"></div>
+          </div>
+
+          <!-- Delete any note -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px">
+            <div style="font-size:0.75rem;color:var(--red);letter-spacing:1px;margin-bottom:12px">DELETE ANY NOTE BY ID</div>
+            <div class="bola-form">
+              <div class="form-group" style="flex:1"><label>Note ID</label><input id="bola-del-id" type="text" placeholder="e.g. 3" /></div>
+              <button class="btn btn-red btn-sm" onclick="bolaDelete()">DELETE</button>
+            </div>
+            <div id="bola-del-result" class="result-box" style="display:none"></div>
+          </div>
+
+          <!-- Enumerate notes -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:16px">
+            <div style="font-size:0.75rem;color:var(--red);letter-spacing:1px;margin-bottom:12px">ENUMERATE IDs (aggressive mode)</div>
+            <div class="bola-form">
+              <div class="form-group"><label>From ID</label><input id="bola-enum-from" type="text" value="1" style="width:80px" /></div>
+              <div class="form-group"><label>To ID</label><input id="bola-enum-to" type="text" value="20" style="width:80px" /></div>
+              <button class="btn btn-red btn-sm" onclick="bolaEnumerate()">ENUMERATE</button>
+            </div>
+            <div id="bola-enum-result" class="result-box" style="display:none;max-height:200px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS VIEW -->
+      <div class="view" id="view-stats">
+        <div class="page-header">
+          <div class="page-title">API STATS</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadStats()">REFRESH</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-label">Total Notes</div><div class="stat-val" id="st-notes">—</div></div>
+          <div class="stat-box"><div class="stat-label">Users</div><div class="stat-val" id="st-users">—</div></div>
+          <div class="stat-box"><div class="stat-label">Notes Today</div><div class="stat-val" id="st-today">—</div></div>
+          <div class="stat-box"><div class="stat-label">Avg Length</div><div class="stat-val" id="st-avg">—</div></div>
+          <div class="stat-box"><div class="stat-label">Requests 24h</div><div class="stat-val" id="st-req">—</div></div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-bottom:10px">Recent public notes</div>
+          <div id="public-notes" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+        <div style="margin-top:20px">
+          <button class="btn btn-ghost btn-sm" onclick="runSeed()">Run /api/seed</button>
+          <span id="seed-msg2" style="font-size:0.72rem;margin-left:10px;color:var(--green)"></span>
+        </div>
+      </div>
+
+      <!-- HOW TO USE VIEW -->
+      <div class="view" id="view-how">
+        <div class="page-header"><div class="page-title">HOW TO USE</div></div>
+        <div style="max-width:700px">
+
+          <div class="inst-section">
+            <h3>QUICK START</h3>
+            <ol class="step-list">
+              <li>Click a <strong>demo account</strong> button on the login screen (or use the Login form). Seed data should already be loaded — if not, click "Seed demo users + notes" first.</li>
+              <li>After login you land on <strong>My Notes</strong> — you'll see notes belonging to the account you logged in as.</li>
+              <li>Click any note to view it. Use <strong>Edit</strong> to modify it or <strong>Delete</strong> to remove it.</li>
+              <li>Click <strong>New Note</strong> in the sidebar or top right to create a note.</li>
+              <li>Go to <strong>BOLA Lab</strong> in the sidebar to exploit the vulnerability directly from the UI.</li>
+            </ol>
+          </div>
+
+          <div class="inst-section">
+            <h3>DEMO ACCOUNTS</h3>
+            <table class="creds-table">
+              <thead><tr><th>Username</th><th>Password</th><th>Role</th></tr></thead>
+              <tbody>
+                <tr><td class="u">alice</td><td class="p">alice123</td><td>user</td></tr>
+                <tr><td class="u">bob</td><td class="p">bob12345</td><td>user</td></tr>
+                <tr><td class="u">charlie</td><td class="p">charlie1</td><td>user</td></tr>
+                <tr><td class="u">admin</td><td class="p">admin123</td><td class="r-admin">admin</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="inst-section">
+            <h3>BOLA VULNERABILITY DEMO</h3>
+            <ol class="step-list">
+              <li>Log in as <strong>alice</strong>. Note the IDs of her notes in My Notes.</li>
+              <li>Logout and log in as <strong>bob</strong>.</li>
+              <li>Go to <strong>BOLA Lab → Read Any Note By ID</strong>. Enter one of Alice's note IDs. Bob can read it — he shouldn't be able to.</li>
+              <li>Use <strong>Overwrite</strong> to replace Alice's note content as Bob.</li>
+              <li>Log back in as Alice — she now sees Bob's tampered content.</li>
+              <li>Use <strong>Enumerate</strong> to walk a range of IDs and discover all readable notes regardless of owner.</li>
+            </ol>
+          </div>
+
+          <div class="inst-section">
+            <h3>NONAME / ACTIVE TESTING INTEGRATION</h3>
+            <ol class="step-list">
+              <li>Point Active Testing at <code>http://192.168.1.98:8000/openapi.json</code> as the API spec.</li>
+              <li>Configure multi-user auth with the four demo accounts above.</li>
+              <li>Run the normal traffic script from the server first to establish a baseline:<br/><code>python3 ~/notes-test/normal_traffic.py --base-url http://192.168.1.98:8000 --duration 120</code></li>
+              <li>Then run the exploit script:<br/><code>python3 ~/notes-test/exploit_bola.py --base-url http://192.168.1.98:8000 --aggressive</code></li>
+              <li>Active Testing should surface a BOLA finding on the <code>/api/notes/{id}</code> endpoints.</li>
+            </ol>
+          </div>
+
+          <div class="inst-section">
+            <h3>FIX THE BOLA (Jenkins exercise)</h3>
+            <p>In <code>app/main.py</code>, add this check inside <code>get_note</code>, <code>update_note</code>, and <code>delete_note</code>:</p>
+            <div class="result-box" style="margin-top:8px">if note.owner_id != current_user.id:
+    raise HTTPException(status_code=403, detail="Not authorized")</div>
+            <p style="margin-top:8px">Rebuild the container, re-run the exploit — BOLA Lab will show 403s and Active Testing should clear the finding.</p>
+          </div>
+
+          <div class="inst-section">
+            <h3>USEFUL URLS</h3>
+            <table class="creds-table">
+              <thead><tr><th>URL</th><th>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td class="u">/docs</td><td>Swagger UI (interactive API explorer)</td></tr>
+                <tr><td class="u">/redoc</td><td>ReDoc API documentation</td></tr>
+                <tr><td class="u">/openapi.json</td><td>Raw OpenAPI spec for Active Testing</td></tr>
+                <tr><td class="u">/health</td><td>Health check endpoint</td></tr>
+                <tr><td class="u">/api/seed</td><td>POST — seed demo users + notes</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /workspace -->
+</div>
+
+<!-- EDIT MODAL (for note editing in-place) -->
+<div class="overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal">
+    <div class="modal-title" id="modal-title">Edit Note</div>
+    <div id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
 </div>
 
 <script>
-  function fmt(ts) {
-    if (!ts) return '';
-    const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
-    return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  }
+// ── State ──────────────────────────────────────────────────────────────────────
+let TOKEN = localStorage.getItem('vn_token') || null;
+let ME    = JSON.parse(localStorage.getItem('vn_me') || 'null');
+let NOTES = [];
+let ACTIVE_NOTE = null;
+let EDITING = false;
 
-  async function loadStats() {
-    try {
-      const r = await fetch('/api/stats');
-      if (!r.ok) return;
-      const d = await r.json();
-      document.getElementById('s-notes').textContent = d.total_notes ?? '—';
-      document.getElementById('s-users').textContent = d.active_users ?? '—';
-      document.getElementById('s-today').textContent = d.notes_today ?? '—';
-      document.getElementById('s-avg').textContent = d.avg_note_length ?? '—';
-      document.getElementById('s-req').textContent  = d.api_requests_24h ?? '—';
-    } catch (e) {
-      document.getElementById('api-status').textContent = 'API OFFLINE';
-      document.getElementById('api-status').style.borderColor = 'var(--red)';
-      document.getElementById('api-status').style.color = 'var(--red)';
+// ── Init ───────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (TOKEN && ME) {
+    enterApp();
+  }
+});
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function api(method, path, body, raw=false) {
+  const opts = {
+    method,
+    headers: { ...(TOKEN ? {'Authorization': `Bearer ${TOKEN}`} : {}) }
+  };
+  if (body && method !== 'GET') {
+    if (typeof body === 'string') {
+      opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      opts.body = body;
+    } else {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
     }
   }
+  const r = await fetch(path, opts);
+  if (raw) return r;
+  if (r.status === 204) return null;
+  try { return { status: r.status, data: await r.json() }; }
+  catch { return { status: r.status, data: null }; }
+}
 
-  async function loadNotes() {
-    try {
-      const r = await fetch('/api/notes/public/recent');
-      if (!r.ok) return;
-      const notes = await r.json();
-      const el = document.getElementById('notes-list');
-      if (!notes.length) {
-        el.innerHTML = '<div class="empty-notes">No notes yet. Run /api/seed to populate.</div>';
-        return;
-      }
-      el.innerHTML = notes.map(n => `
-        <div class="note-row">
-          <div class="note-id">#${n.id}</div>
-          <div>
-            <div class="note-title">${esc(n.title)}</div>
-            <div class="note-preview">${esc(n.preview)}…</div>
-          </div>
-          <div class="note-time">${fmt(n.created_at)}</div>
-        </div>`).join('');
-    } catch (e) {}
+// ── Auth ───────────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('form-login').classList.toggle('active', tab==='login');
+  document.getElementById('form-register').classList.toggle('active', tab==='register');
+}
+
+async function quickLogin(user, pass) {
+  document.getElementById('l-user').value = user;
+  document.getElementById('l-pass').value = pass;
+  await doLogin();
+}
+
+async function doLogin() {
+  const user = document.getElementById('l-user').value.trim();
+  const pass = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('auth-err');
+  errEl.innerHTML = '';
+  if (!user || !pass) { errEl.innerHTML = '<div class="alert alert-err">Username and password required</div>'; return; }
+  try {
+    const r = await api('POST', '/api/auth/login', `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`);
+    if (r.status !== 200) { errEl.innerHTML = `<div class="alert alert-err">${r.data?.detail || 'Login failed'}</div>`; return; }
+    TOKEN = r.data.access_token;
+    localStorage.setItem('vn_token', TOKEN);
+    const me = await api('GET', '/api/users/me');
+    ME = me.data;
+    localStorage.setItem('vn_me', JSON.stringify(ME));
+    enterApp();
+  } catch(e) { errEl.innerHTML = `<div class="alert alert-err">Connection error: ${e.message}</div>`; }
+}
+
+async function doRegister() {
+  const user  = document.getElementById('r-user').value.trim();
+  const email = document.getElementById('r-email').value.trim();
+  const pass  = document.getElementById('r-pass').value;
+  const errEl = document.getElementById('reg-err');
+  errEl.innerHTML = '';
+  if (!user || !pass) { errEl.innerHTML = '<div class="alert alert-err">Username and password required</div>'; return; }
+  try {
+    const r = await api('POST', '/api/auth/register', {username: user, email: email||undefined, password: pass});
+    if (r.status !== 201) { errEl.innerHTML = `<div class="alert alert-err">${r.data?.detail || 'Registration failed'}</div>`; return; }
+    errEl.innerHTML = '<div class="alert alert-ok">Account created — logging in…</div>';
+    document.getElementById('l-user').value = user;
+    document.getElementById('l-pass').value = pass;
+    setTimeout(doLogin, 800);
+  } catch(e) { errEl.innerHTML = `<div class="alert alert-err">Error: ${e.message}</div>`; }
+}
+
+function logout() {
+  TOKEN = null; ME = null; NOTES = [];
+  localStorage.removeItem('vn_token'); localStorage.removeItem('vn_me');
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('hdr-user').style.display = 'none';
+  document.getElementById('btn-logout').style.display = 'none';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-auth').classList.add('active');
+}
+
+function enterApp() {
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('hdr-user').style.display = 'flex';
+  document.getElementById('hdr-user').textContent = ME?.username || '';
+  document.getElementById('btn-logout').style.display = '';
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  showView('notes');
+  loadStats();
+}
+
+// ── Views ──────────────────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  if (name === 'notes') loadNotes();
+  if (name === 'stats') loadStats();
+}
+
+// ── Notes ──────────────────────────────────────────────────────────────────────
+async function loadNotes() {
+  const r = await api('GET', '/api/notes');
+  if (r.status !== 200) return;
+  NOTES = r.data;
+  document.getElementById('nb-count').textContent = NOTES.length;
+  document.getElementById('notes-owner-tag').textContent = ME ? `(${ME.username})` : '';
+  const el = document.getElementById('notes-list');
+  if (!NOTES.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📄</div><div>No notes yet. Click <strong>New Note</strong> to create one.</div></div>';
+    return;
   }
+  el.innerHTML = NOTES.map(n => `
+    <div class="note-card" onclick="viewNote(${n.id})">
+      <div class="note-card-header">
+        <div class="note-card-title">${esc(n.title)}</div>
+        <div class="note-card-id">ID #${n.id}</div>
+      </div>
+      <div class="note-card-preview">${esc(n.content.slice(0,120))}${n.content.length>120?'…':''}</div>
+      <div class="note-card-footer">
+        <div class="note-actions">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();viewNote(${n.id})">VIEW</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editNote(${n.id})">EDIT</button>
+          <button class="btn btn-red btn-sm" onclick="event.stopPropagation();confirmDelete(${n.id},'${esc(n.title)}')">DEL</button>
+        </div>
+        <div class="note-card-time">${fmtDate(n.created_at)}</div>
+      </div>
+    </div>`).join('');
+}
 
-  function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function viewNote(id) {
+  const n = NOTES.find(x => x.id === id);
+  if (!n) return;
+  ACTIVE_NOTE = n;
+  EDITING = false;
+  document.getElementById('det-title-hdr').textContent = n.title;
+  document.getElementById('det-meta').innerHTML = `
+    <div class="meta-chip">ID <span>#${n.id}</span></div>
+    <div class="meta-chip">Owner ID <span>${n.owner_id}</span></div>
+    <div class="meta-chip">Created <span>${fmtDate(n.created_at)}</span></div>
+    <div class="meta-chip">Updated <span>${fmtDate(n.updated_at)}</span></div>`;
+  document.getElementById('det-content-text').textContent = n.content;
+  document.getElementById('det-edit-title').value = n.title;
+  document.getElementById('det-edit-content').value = n.content;
+  document.getElementById('det-view-mode').style.display = '';
+  document.getElementById('det-edit-mode').style.display = 'none';
+  document.getElementById('det-edit-btn').textContent = 'EDIT';
+  document.getElementById('det-msg').innerHTML = '';
+  showView('detail');
+}
+
+function editNote(id) {
+  viewNote(id);
+  setTimeout(toggleEdit, 0);
+}
+
+function toggleEdit() {
+  EDITING = !EDITING;
+  document.getElementById('det-view-mode').style.display = EDITING ? 'none' : '';
+  document.getElementById('det-edit-mode').style.display = EDITING ? '' : 'none';
+  document.getElementById('det-edit-btn').textContent = EDITING ? 'CANCEL' : 'EDIT';
+}
+
+async function doCreateNote() {
+  const title   = document.getElementById('cn-title').value.trim();
+  const content = document.getElementById('cn-content').value.trim();
+  const msg     = document.getElementById('cn-msg');
+  if (!title || !content) { msg.innerHTML = '<div class="alert alert-err">Title and content required</div>'; return; }
+  const r = await api('POST', '/api/notes', {title, content});
+  if (r.status === 201) {
+    msg.innerHTML = '<div class="alert alert-ok">Note created!</div>';
+    document.getElementById('cn-title').value = '';
+    document.getElementById('cn-content').value = '';
+    setTimeout(() => { msg.innerHTML = ''; showView('notes'); }, 800);
+  } else {
+    msg.innerHTML = `<div class="alert alert-err">${r.data?.detail || 'Error creating note'}</div>`;
   }
+}
 
-  async function runSeed() {
-    const el = document.getElementById('seed-result');
-    el.style.color = 'var(--text-dim)';
-    el.textContent = 'Seeding…';
-    try {
-      const r = await fetch('/api/seed', {method: 'POST'});
-      const d = await r.json();
-      el.style.color = 'var(--green)';
-      el.textContent = `Created ${d.created_users} users, ${d.created_notes} notes`;
-      loadStats(); loadNotes();
-    } catch (e) {
-      el.style.color = 'var(--red)';
-      el.textContent = 'Seed failed';
+async function doUpdateNote() {
+  if (!ACTIVE_NOTE) return;
+  const title   = document.getElementById('det-edit-title').value.trim();
+  const content = document.getElementById('det-edit-content').value.trim();
+  const msg     = document.getElementById('det-msg');
+  const r = await api('PUT', `/api/notes/${ACTIVE_NOTE.id}`, {title, content});
+  if (r.status === 200) {
+    ACTIVE_NOTE = r.data;
+    const idx = NOTES.findIndex(n => n.id === ACTIVE_NOTE.id);
+    if (idx >= 0) NOTES[idx] = ACTIVE_NOTE;
+    msg.innerHTML = '<div class="alert alert-ok">Saved!</div>';
+    document.getElementById('det-content-text').textContent = r.data.content;
+    document.getElementById('det-title-hdr').textContent = r.data.title;
+    toggleEdit();
+    setTimeout(() => msg.innerHTML = '', 1500);
+  } else {
+    msg.innerHTML = `<div class="alert alert-err">${r.data?.detail || 'Update failed'}</div>`;
+  }
+}
+
+function confirmDelete(id, title) {
+  openModal('DELETE NOTE', `<p style="color:var(--text);font-size:0.85rem">Delete note <strong style="color:var(--red)">"${esc(title)}"</strong>?<br/>This cannot be undone.</p>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">CANCEL</button>
+     <button class="btn btn-red" onclick="closeModal();doDeleteNoteById(${id})">DELETE</button>`);
+}
+
+async function doDeleteNote() {
+  if (!ACTIVE_NOTE) return;
+  confirmDelete(ACTIVE_NOTE.id, ACTIVE_NOTE.title);
+}
+
+async function doDeleteNoteById(id) {
+  const r = await api('DELETE', `/api/notes/${id}`);
+  if (r === null || (r && r.status === 204)) {
+    NOTES = NOTES.filter(n => n.id !== id);
+    document.getElementById('nb-count').textContent = NOTES.length;
+    showView('notes');
+  }
+}
+
+// ── BOLA Lab ──────────────────────────────────────────────────────────────────
+async function bolaRead() {
+  const id  = document.getElementById('bola-read-id').value.trim();
+  const el  = document.getElementById('bola-read-result');
+  if (!id) return;
+  const r   = await api('GET', `/api/notes/${id}`);
+  el.style.display = '';
+  if (r.status === 200) {
+    const note = r.data;
+    const myId = ME?.id;
+    const isBola = note.owner_id !== myId;
+    el.className = `result-box ${isBola ? 'bola' : 'success'}`;
+    el.textContent = `${isBola ? '⚠ BOLA — Note belongs to owner_id=' + note.owner_id + ', you are id=' + myId + '\n\n' : ''}ID:       ${note.id}\nTitle:    ${note.title}\nOwner ID: ${note.owner_id}\nContent:  ${note.content}`;
+  } else {
+    el.className = 'result-box error';
+    el.textContent = `${r.status} — ${r.data?.detail || 'error'}`;
+  }
+}
+
+async function bolaWrite() {
+  const id      = document.getElementById('bola-write-id').value.trim();
+  const content = document.getElementById('bola-write-content').value.trim();
+  const el      = document.getElementById('bola-write-result');
+  if (!id || !content) return;
+  const r = await api('PUT', `/api/notes/${id}`, {content});
+  el.style.display = '';
+  if (r.status === 200) {
+    const note = r.data;
+    const isBola = note.owner_id !== ME?.id;
+    el.className = `result-box ${isBola ? 'bola' : 'success'}`;
+    el.textContent = `${isBola ? '⚠ BOLA WRITE SUCCEEDED — overwrote note owned by id=' + note.owner_id + '\n\n' : ''}Updated ID: ${note.id}\nNew content: ${note.content}`;
+  } else {
+    el.className = 'result-box error';
+    el.textContent = `${r.status} — ${r.data?.detail || 'error (ownership check may be active)'}`;
+  }
+}
+
+async function bolaDelete() {
+  const id  = document.getElementById('bola-del-id').value.trim();
+  const el  = document.getElementById('bola-del-result');
+  if (!id) return;
+  // first read to check ownership
+  const chk = await api('GET', `/api/notes/${id}`);
+  const r   = await api('DELETE', `/api/notes/${id}`);
+  el.style.display = '';
+  const rawR = await fetch(`/api/notes/${id}`, {headers: TOKEN ? {Authorization:`Bearer ${TOKEN}`}:{}});
+  if (r === null || (r && r.status === 204)) {
+    const isBola = chk.status === 200 && chk.data?.owner_id !== ME?.id;
+    el.className = `result-box ${isBola ? 'bola' : 'success'}`;
+    el.textContent = `${isBola ? '⚠ BOLA DELETE SUCCEEDED — deleted note owned by id=' + chk.data?.owner_id + '\n' : ''}Note #${id} deleted.`;
+  } else {
+    el.className = 'result-box error';
+    el.textContent = `${r?.status || '?'} — ${r?.data?.detail || 'error'}`;
+  }
+}
+
+async function bolaEnumerate() {
+  const from = parseInt(document.getElementById('bola-enum-from').value) || 1;
+  const to   = parseInt(document.getElementById('bola-enum-to').value)   || 20;
+  const el   = document.getElementById('bola-enum-result');
+  el.style.display = '';
+  el.className = 'result-box';
+  el.textContent = 'Enumerating…';
+  const lines = [];
+  let bolaCount = 0;
+  for (let id = from; id <= to; id++) {
+    const r = await api('GET', `/api/notes/${id}`);
+    if (r.status === 200) {
+      const isBola = r.data.owner_id !== ME?.id;
+      if (isBola) bolaCount++;
+      lines.push(`#${String(id).padEnd(4)} ${r.status}  owner=${r.data.owner_id}  ${isBola?'⚠ BOLA':'[own] '}  ${r.data.title.slice(0,35)}`);
+    } else {
+      lines.push(`#${String(id).padEnd(4)} ${r.status}`);
     }
   }
+  lines.push(`\n── ${bolaCount} cross-user (BOLA) reads out of ${to-from+1} IDs ──`);
+  el.className = `result-box ${bolaCount > 0 ? 'bola' : 'success'}`;
+  el.textContent = lines.join('\n');
+}
 
-  loadStats(); loadNotes();
-  setInterval(loadStats, 10000);
-  setInterval(loadNotes, 15000);
+// ── Stats ──────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const r = await api('GET', '/api/stats');
+  if (r.status === 200) {
+    document.getElementById('st-notes').textContent = r.data.total_notes;
+    document.getElementById('st-users').textContent = r.data.active_users;
+    document.getElementById('st-today').textContent = r.data.notes_today;
+    document.getElementById('st-avg').textContent   = r.data.avg_note_length;
+    document.getElementById('st-req').textContent   = r.data.api_requests_24h;
+  }
+  const pub = await api('GET', '/api/notes/public/recent');
+  if (pub.status === 200) {
+    const el = document.getElementById('public-notes');
+    el.innerHTML = pub.data.map(n => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:10px 14px;display:flex;justify-content:space-between;align-items:start;gap:12px">
+        <div>
+          <div style="color:var(--text-bright);margin-bottom:3px">${esc(n.title)}</div>
+          <div style="color:var(--text-dim);font-size:0.72rem">${esc(n.preview)}…</div>
+        </div>
+        <div style="color:var(--text-dim);font-size:0.65rem;white-space:nowrap">#${n.id}</div>
+      </div>`).join('');
+  }
+}
+
+async function runSeed() {
+  const r = await api('POST', '/api/seed');
+  const msg = r?.status === 201 ? `Created ${r.data.created_users} users, ${r.data.created_notes} notes` : 'Seed error';
+  ['seed-msg','seed-msg2'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = msg; });
+  loadStats();
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────────
+function openModal(title, bodyHtml, footerHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-footer').innerHTML = footerHtml;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(ts) {
+  if (!ts) return '';
+  try { return new Date(ts.endsWith('Z')?ts:ts+'Z').toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  catch { return ts; }
+}
 </script>
 </body>
 </html>
